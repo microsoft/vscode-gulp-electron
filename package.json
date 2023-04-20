@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/microsoft/vscode-gulp-electron",
   "dependencies": {
-    "@electron/get": "^1.12.4",
+    "@electron/get": "^2.0.2",
     "@octokit/rest": "^18.0.14",
     "event-stream": "3.3.4",
     "gulp-filter": "^5.1.0",
