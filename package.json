@@ -1,14 +1,14 @@
 {
-  "name": "gulp-atom-electron",
+  "name": "@vscode/gulp-electron",
   "version": "1.33.0",
-  "description": "gulp plugin for packaging Electron applications",
+  "description": "gulp plugin for packaging Electron into VS Code",
   "main": "src/index.js",
   "scripts": {
     "test": "mocha"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/joaomoreno/gulp-atom-electron.git"
+    "url": "https://github.com/microsoft/vscode-gulp-electron.git"
   },
   "engines": {
     "node": ">=10"
@@ -24,9 +24,9 @@
   "author": "João Moreno",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/joaomoreno/gulp-atom-electron/issues"
+    "url": "https://github.com/microsoft/vscode-gulp-electron/issues"
   },
-  "homepage": "https://github.com/joaomoreno/gulp-atom-electron",
+  "homepage": "https://github.com/microsoft/vscode-gulp-electron",
   "dependencies": {
     "@electron/get": "^1.12.4",
     "@octokit/rest": "^18.0.14",

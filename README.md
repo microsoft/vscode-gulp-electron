@@ -4,14 +4,12 @@ Please use the official way of requiring Electron: https://electronjs.org/docs/t
 
 --
 
-# gulp-atom-electron
-
-[![Build Status](https://dev.azure.com/vscode/gulp-atom-electron/_apis/build/status/joaomoreno.gulp-atom-electron?branchName=master)](https://dev.azure.com/vscode/gulp-atom-electron/_build/latest?definitionId=38&branchName=master)
+# @vscode/gulp-electron
 
 ### Installation
 
 ```bash
-npm install --save-dev gulp-atom-electron
+npm install --save-dev @vscode/gulp-electron
 ```
 
 ### Usage
@@ -22,13 +20,13 @@ You can use this module in two distinct ways: **to package your application** an
 #### How to Package Your Application
 
 You should source your app's files using `gulp.src` and pipe them through
-`gulp-atom-electron`. The following task will create your application in
+`@vscode/gulp-electron`. The following task will create your application in
 the `app` folder, ready for launch.
 
 ```javascript
 var gulp = require("gulp");
 var symdest = require("gulp-symdest");
-var electron = require("gulp-atom-electron");
+var electron = require("@vscode/gulp-electron");
 
 gulp.task("default", function () {
   return gulp
@@ -49,7 +47,7 @@ Finally, you can always pipe it to a **zip archive** for easy distribution.
 ```javascript
 var gulp = require("gulp");
 var zip = require("gulp-vinyl-zip");
-var electron = require("gulp-atom-electron");
+var electron = require("@vscode/gulp-electron");
 
 gulp.task("default", function () {
   return gulp
@@ -66,7 +64,7 @@ makes sure you always have the exact version of Electron in a directory:
 
 ```javascript
 var gulp = require("gulp");
-var electron = require("gulp-atom-electron");
+var electron = require("@vscode/gulp-electron");
 
 gulp.task("default", function () {
   return electron.dest("electron-build", {
