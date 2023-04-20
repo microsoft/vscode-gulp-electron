@@ -1,27 +1,41 @@
 trigger:
+  batch: true
   branches:
-    include: ['*']
-  tags:
-    include: ['*']
+    include:
+      - main
 
-pool:
-  vmImage: ubuntu-latest
+pr: [main]
 
-steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '10.x'
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: microsoft/vscode-engineering
+      ref: main
+      endpoint: Monaco
 
-  - script: npm install
-    displayName: Install Dependencies
+parameters:
+  - name: publishPackage
+    displayName: 🚀 Publish
+    type: boolean
+    default: false
 
-  - script: npm test
-    displayName: Run Tests
-
-  - task: Npm@1
-    displayName: 'Publish to NPM'
-    inputs:
-      command: publish
-      verbose: false
-      publishEndpoint: 'NPM'
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+extends:
+  template: azure-pipelines/npm-package/pipeline.yml@templates
+  parameters:
+    npmPackages:
+      - name: gulp-electron
+        buildSteps:
+          - script: npm ci
+          - script: npm run build
+        testPlatforms:
+          - name: Linux
+            nodeVersions: [14.x, 16.x, 17.x]
+          - name: MacOS
+            nodeVersions: [14.x, 16.x, 17.x]
+          - name: Windows
+            nodeVersions: [14.x, 16.x, 17.x]
+        testSteps:
+          - script: npm ci
+          - script: npm test
+        publishPackage: ${{ parameters.publishPackage }}
