@@ -1,13 +1,13 @@
 "use strict";
 
-var path = require("path");
+var download = require("./download");
 var es = require("event-stream");
 var fs = require("fs");
+var path = require("path");
 var rename = require("gulp-rename");
 var rimraf = require("rimraf");
-var symdest = require("gulp-symdest");
-var download = require("./download");
 var semver = require("semver");
+var vfs = require("vinyl-fs");
 
 function moveApp(platform, opts) {
   var appPath = platform.getAppPath(opts);
@@ -136,7 +136,7 @@ function dest(destination, opts) {
       );
     }
 
-    stream.pipe(symdest(destination)).pipe(result);
+    stream.pipe(vfs.dest(destination)).pipe(result);
   });
 
   return result;

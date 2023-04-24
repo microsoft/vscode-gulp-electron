@@ -25,21 +25,16 @@ the `app` folder, ready for launch.
 
 ```javascript
 var gulp = require("gulp");
-var symdest = require("gulp-symdest");
+var vfs = require("vinyl-fs");
 var electron = require("@vscode/gulp-electron");
 
 gulp.task("default", function () {
-  return gulp
+  return vfs
     .src("src/**")
     .pipe(electron({ version: "0.34.1", platform: "darwin" }))
-    .pipe(symdest("app"));
+    .pipe(vfs.dest("app"));
 });
 ```
-
-**Note:** It is important to use `gulp-symdest` only because of the OS X
-platform. An application bundle has symlinks within and if you use `gulp.dest`
-to pipe the built app to disk, those will be missing. `symdest` will make
-sure symlinks are taken into account.
 
 Finally, you can always pipe it to a **zip archive** for easy distribution.
 [joaomoreno/gulp-vinyl-zip](https://github.com/joaomoreno/gulp-vinyl-zip) is recommended:
