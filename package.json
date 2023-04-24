@@ -42,11 +42,11 @@
     "rimraf": "^2.4.2",
     "semver": "^4.3.4",
     "temp": "^0.8.3",
-    "vinyl": "^2.2.0",
+    "vinyl": "^3.0.0",
     "vinyl-fs": "^3.0.3"
   },
   "devDependencies": {
     "gulp-buffer": "0.0.2",
-    "mocha": "^9.2.2"
+    "mocha": "^10.2.0"
   }
 }
