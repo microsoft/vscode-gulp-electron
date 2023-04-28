@@ -323,6 +323,20 @@ function addCredits(opts) {
   return es.duplex(input, es.merge(input, credits));
 }
 
+function moveChromiumLicense(opts) {
+  var newLicensePath = path.join(
+    getOriginalAppFullName(opts),
+    "Contents",
+    "Resources"
+  );
+  return es.mapSync(function (f) {
+    if (!f.isNull() && !f.isDirectory() && f.path === "LICENSES.chromium.html") {
+      f.dirname = newLicensePath;
+    }
+    return f;
+  });
+}
+
 function renameApp(opts) {
   var originalAppName = getOriginalAppName(opts);
   var originalAppNameRegexp = new RegExp("^" + getOriginalAppFullName(opts));
@@ -403,6 +417,7 @@ exports.patch = function (opts) {
     .pipe(patchHelperInfoPlist(opts))
     .pipe(createEntitlementsPlist(opts))
     .pipe(addCredits(opts))
+    .pipe(moveChromiumLicense(opts))
     .pipe(renameApp(opts))
     .pipe(renameAppHelper(opts));
 

@@ -110,6 +110,52 @@ describe("electron", function () {
           cb();
         });
     });
+
+    it("should move chromium license", function (cb) {
+      this.timeout(1000 * 60 * 5 /* 5 minutes */);
+
+      var files = {};
+      process.chdir(__dirname);
+
+      vfs
+        .src("src/**/*")
+        .pipe(
+          electron({
+            version: "22.3.6",
+            platform: "darwin",
+            darwinIcon: path.join(__dirname, "resources", "myapp.icns"),
+            darwinBundleIdentifier:
+              "com.github.joaomoreno.gulpatomelectron.faketemplateapp",
+            token: process.env["GITHUB_TOKEN"],
+          })
+        )
+        .on("data", function (f) {
+          assert(!files[f.relative]);
+          files[f.relative] = f;
+        })
+        .on("error", cb)
+        .on("end", function () {
+          assert(
+            files[
+            path.join(
+              "FakeTemplateApp.app",
+              "Contents",
+              "Resources",
+              "LICENSES.chromium.html",
+            )
+            ]
+          );
+          assert(
+            !Object.keys(files).some(function (k) {
+              return k.startsWith(
+                "LICENSES.chromium.html"
+              );
+            })
+          );
+
+          cb();
+        });
+    });
   });
 
   describe("linux", function () {
