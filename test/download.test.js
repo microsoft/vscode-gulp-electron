@@ -30,6 +30,30 @@ describe("download", function () {
       });
   });
 
+  it("should download with custom tag", function (cb) {
+    var didSeeInfoPList = false;
+
+    download({
+      version: "22.3.6",
+      tag: "v22.3.6-20472245",
+      repo: "microsoft/vscode-gulp-electron",
+      platform: "darwin",
+      token: process.env["GITHUB_TOKEN"],
+    })
+      .on("data", function (f) {
+        if (
+          f.relative === path.join("Electron.app", "Contents", "Info.plist")
+        ) {
+          didSeeInfoPList = true;
+        }
+      })
+      .on("error", cb)
+      .on("end", function () {
+        assert(didSeeInfoPList);
+        cb();
+      });
+  });
+
   it("should download PDBs", function (cb) {
     var didSeePDBs = false;
 

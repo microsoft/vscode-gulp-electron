@@ -11,17 +11,18 @@ const { Octokit } = require("@octokit/rest");
 const got = require("got");
 
 async function getDownloadUrl(
-  ownerRepo,
+  ownerRepo, customTag,
   { version, platform, arch, token, artifactName, artifactSuffix }
 ) {
   const [owner, repo] = ownerRepo.split("/");
   const octokit = new Octokit({ auth: token });
   const releaseVersion = version.startsWith("v") ? version : `v${version}`;
+  const tag = customTag ?? releaseVersion;
 
   const { data: release } = await octokit.repos.getReleaseByTag({
     owner,
     repo,
-    tag: releaseVersion,
+    tag,
   });
 
   if (!release) {
@@ -117,7 +118,7 @@ async function download(opts) {
   );
 
   if (opts.repo) {
-    const url = await getDownloadUrl(opts.repo, downloadOpts);
+    const url = await getDownloadUrl(opts.repo, opts.tag, downloadOpts);
 
     downloadOpts = {
       ...downloadOpts,
@@ -166,6 +167,7 @@ function getDarwinLibFFMpegPath(opts) {
 module.exports = function (opts) {
   const downloadOpts = {
     version: opts.version,
+    tag: opts.tag,
     platform: opts.platform,
     arch: opts.arch === "arm" ? "armv7l" : opts.arch,
     artifactName: "electron",
