@@ -37,4 +37,6 @@ extends:
         testSteps:
           - script: npm ci
           - script: npm test
+            env:
+              GITHUB_TOKEN: "$(github-token)"
         publishPackage: ${{ parameters.publishPackage }}
