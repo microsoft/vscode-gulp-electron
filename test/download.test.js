@@ -161,4 +161,42 @@ describe("download", function () {
         cb();
       });
   });
+
+  it("should error when checksum file does not contain the expected value", function (cb) {
+    download({
+      version: "22.3.11",
+      platform: "darwin",
+      token: process.env["GITHUB_TOKEN"],
+      validateChecksum: true,
+      checksumFile: path.join(__dirname, "fixtures", "SHASUMS256-BAD.txt"),
+    })
+      .once("data", function () {
+        cb(new Error("Should never be here"));
+      })
+      .once("error", function () {
+        cb();
+      });
+  });
+
+  it("should pass checksum validation", function (cb) {
+    download({
+      version: "22.3.11",
+      token: process.env["GITHUB_TOKEN"],
+      platform: "darwin",
+      validateChecksum: true,
+      checksumFile: path.join(__dirname, "fixtures", "SHASUMS256-GOOD.txt"),
+    })
+      .on("data", function (f) {
+        if (
+          f.relative === path.join("Electron.app", "Contents", "Info.plist")
+        ) {
+          didSeeInfoPList = true;
+        }
+      })
+      .on("error", cb)
+      .on("end", function () {
+        assert(didSeeInfoPList);
+        cb();
+      });
+  });
 });

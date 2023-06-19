@@ -88,6 +88,14 @@ function electron(opts) {
     );
   }
 
+  if (opts.validateChecksum) {
+    try {
+      fs.openSync(opts.checksumFile, fs.constants.R_OK);
+    } catch (err) {
+      throw new Error(`Unable to read checksum file: ${opts.checksumFile}`);
+    }
+  }
+
   return _electron(opts);
 }
 
