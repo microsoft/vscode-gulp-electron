@@ -32,6 +32,14 @@ describe("electron", function () {
         productName: "TestApp",
       });
     });
+
+    assert.throws(function () {
+      electron({
+        version: "22.3.6",
+        platform: "darwin",
+        validateChecksum: true,
+      });
+    });
   });
 
   describe("darwin", function () {

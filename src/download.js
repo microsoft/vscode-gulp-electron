@@ -9,6 +9,7 @@ var zfs = require("gulp-vinyl-zip");
 var filter = require("gulp-filter");
 const { Octokit } = require("@octokit/rest");
 const got = require("got");
+const sumchecker = require('sumchecker');
 
 async function getDownloadUrl(
   ownerRepo, customTag,
@@ -139,7 +140,16 @@ async function download(opts) {
 function downloadStream(opts) {
   return es.readable(function (_, cb) {
     download(opts).then(
-      (assets) => {
+      async (assets) => {
+        if (opts.validateChecksum) {
+          try {
+            await sumchecker('sha256', opts.checksumFile, path.dirname(assets), [
+              path.basename(assets),
+            ]);
+          } catch (err) {
+            return cb(err);
+          }
+        }
         zfs
           .src(assets)
           .on("data", (data) => this.emit("data", data))
@@ -166,16 +176,9 @@ function getDarwinLibFFMpegPath(opts) {
 
 module.exports = function (opts) {
   const downloadOpts = {
-    version: opts.version,
-    tag: opts.tag,
-    platform: opts.platform,
+    ...opts,
     arch: opts.arch === "arm" ? "armv7l" : opts.arch,
     artifactName: "electron",
-    token: opts.token,
-    quiet: opts.quiet,
-    repo: opts.repo,
-    symbols: opts.symbols,
-    pdbs: opts.pdbs,
   };
 
   if (opts.symbols) {
