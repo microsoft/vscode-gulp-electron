@@ -40,7 +40,7 @@
     "progress": "^1.1.8",
     "rcedit": "1.1.2",
     "rimraf": "^2.4.2",
-    "semver": "^4.3.4",
+    "semver": "^5.7.2",
     "sumchecker": "^3.0.1",
     "temp": "^0.8.3",
     "vinyl": "^3.0.0",
