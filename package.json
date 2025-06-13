@@ -1,6 +1,6 @@
 {
   "name": "@vscode/gulp-electron",
-  "version": "1.36.0",
+  "version": "1.37.0",
   "description": "gulp plugin for packaging Electron into VS Code",
   "main": "src/index.js",
   "scripts": {
@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/microsoft/vscode-gulp-electron",
   "dependencies": {
-    "@electron/get": "^2.0.2",
+    "@electron/get": "^4.0.1",
     "@octokit/rest": "^18.0.14",
     "event-stream": "3.3.4",
     "gulp-filter": "^5.1.0",
@@ -40,7 +40,7 @@
     "progress": "^1.1.8",
     "rcedit": "^4.0.1",
     "rimraf": "^2.4.2",
-    "semver": "^5.7.2",
+    "semver": "^7.7.2",
     "sumchecker": "^3.0.1",
     "temp": "^0.8.3",
     "vinyl": "^3.0.0",
