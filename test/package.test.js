@@ -53,7 +53,7 @@ describe("electron", function () {
         .src("src/**/*")
         .pipe(
           electron({
-            version: "7.2.4",
+            version: "35.0.0",
             platform: "darwin",
             darwinIcon: path.join(__dirname, "resources", "myapp.icns"),
             darwinBundleIdentifier:
@@ -177,8 +177,9 @@ describe("electron", function () {
         .src("src/**/*")
         .pipe(
           electron({
-            version: "7.2.4",
+            version: "35.0.0",
             platform: "linux",
+            arch: "x64",
             token: process.env["GITHUB_TOKEN"],
           })
         )
@@ -222,7 +223,7 @@ describe("electron", function () {
         .src("src/**/*")
         .pipe(
           electron({
-            version: "7.2.4",
+            version: "35.0.0",
             platform: "win32",
             token: process.env["GITHUB_TOKEN"],
           })

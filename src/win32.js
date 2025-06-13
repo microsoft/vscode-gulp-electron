@@ -93,11 +93,7 @@ function patchExecutable(opts) {
         return cb(error);
       }
 
-      rcedit(tempPath, patch, function (err) {
-        if (err) {
-          return cb(err);
-        }
-
+      rcedit(tempPath, patch).then(() => {
         fs.readFile(tempPath, function (err, data) {
           if (err) {
             return cb(err);
@@ -113,6 +109,10 @@ function patchExecutable(opts) {
             cb(null, f);
           });
         });
+      }).catch(err => {
+        if (err) {
+          return cb(err);
+        }
       });
     });
   });

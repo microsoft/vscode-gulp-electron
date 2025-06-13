@@ -96,6 +96,8 @@ function electron(opts) {
     }
   }
 
+  opts.arch = opts.arch || process.arch;
+
   return _electron(opts);
 }
 

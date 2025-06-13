@@ -88,10 +88,10 @@ async function download(opts) {
         arch = "x64";
         break;
       case "win32":
-        arch = "ia32";
+        arch = "x64";
         break;
       case "linux":
-        arch = "ia32";
+        arch = "x64";
         break;
     }
   }
