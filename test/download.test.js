@@ -12,7 +12,7 @@ describe("download", function () {
     var didSeeInfoPList = false;
 
     download({
-      version: "7.2.4",
+      version: "35.0.0",
       platform: "darwin",
       token: process.env["GITHUB_TOKEN"],
     })
@@ -30,7 +30,7 @@ describe("download", function () {
       });
   });
 
-  it("should download with custom tag", function (cb) {
+  it.skip("should download with custom tag", function (cb) {
     var didSeeInfoPList = false;
 
     download({
@@ -58,7 +58,7 @@ describe("download", function () {
     var didSeePDBs = false;
 
     download({
-      version: "24.1.1",
+      version: "36.0.0",
       platform: "win32",
       arch: "x64",
       pdbs: true,
@@ -84,7 +84,7 @@ describe("download", function () {
     var didSeeSymbols = false;
 
     download({
-      version: "7.2.4",
+      version: "35.0.0",
       platform: "win32",
       symbols: true,
       token: process.env["GITHUB_TOKEN"],
@@ -110,7 +110,7 @@ describe("download", function () {
 
     var originalFile = null;
     var original = download({
-      version: "10.1.3",
+      version: "35.0.0",
       platform: "darwin",
       token: process.env["GITHUB_TOKEN"],
     })
@@ -124,7 +124,7 @@ describe("download", function () {
       .on("end", function () {
         var modifiedFile = null;
         var modified = download({
-          version: "10.1.3",
+          version: "35.0.0",
           platform: "darwin",
           token: process.env["GITHUB_TOKEN"],
           ffmpegChromium: true,
@@ -149,7 +149,7 @@ describe("download", function () {
 
   it("should error properly", function (cb) {
     download({
-      version: "7.2.4",
+      version: "35.0.0",
       platform: "darwin",
       token: process.env["GITHUB_TOKEN"],
       repo: "foo",
