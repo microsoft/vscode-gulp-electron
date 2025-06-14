@@ -59,7 +59,9 @@ async function getDownloadUrl(
   });
 
   const { url, headers } = requestOptions;
-  headers.authorization = `token ${token}`;
+  if (token) {
+    headers.authorization = `token ${token}`;
+  }
 
   const response = await got(url, {
     followRedirect: false,
