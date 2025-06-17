@@ -1,6 +1,6 @@
 {
   "name": "@vscode/gulp-electron",
-  "version": "1.37.0",
+  "version": "1.37.1",
   "description": "gulp plugin for packaging Electron into VS Code",
   "main": "src/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "url": "https://github.com/microsoft/vscode-gulp-electron.git"
   },
   "engines": {
-    "node": ">=10"
+    "node": ">=22"
   },
   "keywords": [
     "gulpplugin",
