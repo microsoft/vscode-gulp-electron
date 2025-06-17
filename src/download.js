@@ -8,7 +8,7 @@ var es = require("event-stream");
 var zfs = require("gulp-vinyl-zip");
 var filter = require("gulp-filter");
 const { Octokit } = require("@octokit/rest");
-const got = require("got");
+const { got } = require("got");
 const sumchecker = require('sumchecker');
 
 async function getDownloadUrl(
