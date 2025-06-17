@@ -54,6 +54,30 @@ describe("download", function () {
       });
   });
 
+  it("should download from a custom repo", function (cb) {
+    var didSeeInfoPList = false;
+
+    download({
+      version: "32.2.3",
+      repo: "deepak1556/electron-debug-version",
+      platform: "darwin",
+      arch: "arm64",
+      token: process.env["GITHUB_TOKEN"],
+    })
+      .on("data", function (f) {
+        if (
+          f.relative === path.join("Electron.app", "Contents", "Info.plist")
+        ) {
+          didSeeInfoPList = true;
+        }
+      })
+      .on("error", cb)
+      .on("end", function () {
+        assert(didSeeInfoPList);
+        cb();
+      });
+  });
+
   it("should download PDBs", function (cb) {
     var didSeePDBs = false;
 
