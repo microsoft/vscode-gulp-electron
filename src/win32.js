@@ -51,7 +51,10 @@ function getSignTool() {
 }
 
 exports.getAppPath = function (opts) {
-  return "resources/app";
+  if (opts.productVersionString) {
+    return path.join(opts.productVersionString, "resources", "app");
+  }
+  return path.join("resources", "app");
 };
 
 function patchExecutable(opts) {
@@ -71,7 +74,7 @@ function patchExecutable(opts) {
           opts.copyright ||
           "Copyright (C) 2014 GitHub, Inc. All rights reserved",
         ProductName: opts.productAppName || opts.productName,
-        ProductVersion: opts.productVersion,
+        ProductVersion: opts.productVersionString ?? opts.productVersion,
       },
       "file-version": opts.productVersion,
       "product-version": opts.productVersion,
@@ -140,13 +143,37 @@ function renameApp(opts) {
   });
 }
 
+function moveFilesExceptExecutable(opts) {
+  const versionFolder = opts.productVersionString;
+  if (!versionFolder) {
+    throw new Error("productVersionString must be defined.");
+  }
+  return es.mapSync(function (f) {
+    // Skip if the file is the renamed executable
+    if (
+      f.relative === `${opts.productName}.exe`
+    ) {
+      return f;
+    }
+
+    // Move other files to version subfolder
+    if (f.path && f.base) {
+      const relativePath = path.relative(f.base, f.path);
+      f.path = path.join(f.base, versionFolder, relativePath);
+    }
+
+    return f;
+  });
+}
+
 exports.patch = function (opts) {
   var pass = es.through();
 
   var src = pass
     .pipe(opts.keepDefaultApp ? es.through() : removeDefaultApp())
     .pipe(patchExecutable(opts))
-    .pipe(renameApp(opts));
+    .pipe(renameApp(opts))
+    .pipe(opts.createVersionedResources ? moveFilesExceptExecutable(opts) : es.through());
 
   return es.duplex(pass, src);
 };
