@@ -74,7 +74,10 @@ function patchExecutable(opts) {
           opts.copyright ||
           "Copyright (C) 2014 GitHub, Inc. All rights reserved",
         ProductName: opts.productAppName || opts.productName,
-        ProductVersion: opts.productVersionString ?? opts.productVersion,
+        ProductVersion: opts.productVersion,
+      },
+      "resource-string": {
+        2: opts.productVersionString
       },
       "file-version": opts.productVersion,
       "product-version": opts.productVersion,
