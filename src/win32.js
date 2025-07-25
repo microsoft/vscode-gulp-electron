@@ -51,7 +51,10 @@ function getSignTool() {
 }
 
 exports.getAppPath = function (opts) {
-  if (opts.productVersionString) {
+  if (opts.createVersionedResources) {
+    if (!opts.productVersionString) {
+      throw new Error("productVersionString must be defined.");
+    }
     return path.join(opts.productVersionString, "resources", "app");
   }
   return path.join("resources", "app");
@@ -76,12 +79,18 @@ function patchExecutable(opts) {
         ProductName: opts.productAppName || opts.productName,
         ProductVersion: opts.productVersion,
       },
-      "resource-string": {
-        2: opts.productVersionString
-      },
       "file-version": opts.productVersion,
       "product-version": opts.productVersion,
     };
+
+    if (opts.createVersionedResources) {
+      if (!opts.productVersionString) {
+        throw new Error("productVersionString must be defined.");
+      }
+      patch["resource-string"] = {
+        2: opts.productVersionString
+      };
+    }
 
     if (opts.winIcon) {
       patch.icon = opts.winIcon;
