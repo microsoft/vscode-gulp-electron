@@ -254,5 +254,59 @@ describe("electron", function () {
           cb();
         });
     });
+
+    it("should move files to version subfolder except executable when createVersionedResources is true", function (cb) {
+      this.timeout(1000 * 60 * 5 /* 5 minutes */);
+
+      var files = {};
+      process.chdir(__dirname);
+      const productVersionString = "1.2.3-test";
+
+      vfs
+        .src("src/**/*")
+        .pipe(
+          electron({
+            version: "35.0.0",
+            platform: "win32",
+            productVersionString,
+            createVersionedResources: true,
+            token: process.env["GITHUB_TOKEN"],
+          })
+        )
+        .on("data", function (f) {
+          assert(!files[f.relative]);
+          files[f.relative] = f;
+        })
+        .on("error", cb)
+        .on("end", function () {
+          // Executable should remain in root
+          assert(files["FakeTemplateApp.exe"], "Executable should exist in root");
+
+          // Resources should be in version subfolder
+          const versionedResourcePath = path.join(productVersionString, "resources", "app", "main.js");
+          assert(files[versionedResourcePath], "Resources should be in version subfolder");
+
+          // Package.json should also be in version subfolder
+          const versionedPackageJsonPath = path.join(productVersionString, "resources", "app", "package.json");
+          assert(files[versionedPackageJsonPath], "package.json should be in version subfolder");
+
+          // Verify package.json content
+          var packageJson = JSON.parse(
+            files[versionedPackageJsonPath].contents.toString("utf8")
+          );
+          assert.equal("FakeTemplateApp", packageJson.name);
+          assert.equal("0.0.1", packageJson.version);
+
+          // Make sure there are no files or folders in the root except for the executable
+          assert(
+            !Object.keys(files).some(function (k) {
+              return k !== "FakeTemplateApp.exe" && !k.startsWith(productVersionString);
+            }),
+            "No files or folders other than the executable should exist outside the versioned folder"
+          );
+
+          cb();
+        });
+    });
   });
 });
