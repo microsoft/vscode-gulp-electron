@@ -226,11 +226,9 @@ function patchHelperInfoPlist(opts) {
   var input = es.through();
   var output = input.pipe(
     es.map(function (f, cb) {
-      if (
-        !/Contents\/Frameworks\/Electron\ Helper( \w+)?\.app\/Contents\/Info.plist$/i.test(
-          f.relative
-        )
-      ) {
+      const match = /Contents\/Frameworks\/Electron\ Helper( \(\w+\))?\.app\/Contents\/Info.plist$/i.exec(
+        f.relative);
+      if (!match) {
         return cb(null, f);
       }
 
@@ -246,24 +244,14 @@ function patchHelperInfoPlist(opts) {
 
       f.contents.on("end", function () {
         var infoPlist = plist.parse(contents.toString("utf8"));
-        var match = /\.helper\.([^.]+)$/.exec(
-          infoPlist["CFBundleIdentifier"] || ""
-        );
-        var suffix = match ? match[1] : "";
+        var suffix = match[1] ?? "";
 
         if (opts.darwinBundleIdentifier) {
           infoPlist["CFBundleIdentifier"] =
             opts.darwinBundleIdentifier + ".helper";
-
-          if (suffix) {
-            infoPlist["CFBundleIdentifier"] += "." + suffix;
-          }
         }
 
-        infoPlist["CFBundleName"] = opts.productName + " Helper";
-        if (suffix) {
-          infoPlist["CFBundleName"] += " " + suffix;
-        }
+        infoPlist["CFBundleName"] = `${opts.productName} Helper${suffix}`;
 
         if (infoPlist["CFBundleDisplayName"]) {
           infoPlist["CFBundleDisplayName"] = infoPlist["CFBundleName"];
