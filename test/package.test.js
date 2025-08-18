@@ -115,6 +115,33 @@ describe("electron", function () {
           assert.equal(infoPlist["CFBundleName"], "FakeTemplateApp")
           assert.equal(infoPlist["CFBundleDisplayName"], "FakeTemplateApp")
 
+          // Added helper Info.plist validation
+          var helperBasePath = path.join(
+            "FakeTemplateApp.app",
+            "Contents",
+            "Frameworks"
+          );
+          var helperApps = [
+            "FakeTemplateApp Helper.app",
+            "FakeTemplateApp Helper (GPU).app",
+            "FakeTemplateApp Helper (Renderer).app",
+            "FakeTemplateApp Helper (Plugin).app"
+          ];
+          helperApps.forEach(function (appName) {
+            var helperPlistPath = path.join(helperBasePath, appName, "Contents", "Info.plist");
+            if (files[helperPlistPath]) {
+              var helperPlist = plist.parse(files[helperPlistPath].contents.toString("utf8"));
+              var expectedName = appName.replace(/\.app$/, "");
+              assert.equal(helperPlist["CFBundleName"], expectedName, "CFBundleName should be updated");
+              if (helperPlist["CFBundleDisplayName"]) {
+                assert.equal(helperPlist["CFBundleDisplayName"], expectedName, "CFBundleDisplayName should be updated");
+              }
+              if (helperPlist["CFBundleExecutable"]) {
+                assert.equal(helperPlist["CFBundleExecutable"], expectedName, "CFBundleExecutable should be renamed");
+              }
+            }
+          });
+
           cb();
         });
     });
