@@ -10,6 +10,18 @@ var filter = require("gulp-filter");
 const { Octokit } = require("@octokit/rest");
 const { got } = require("got");
 const sumchecker = require('sumchecker');
+const { HttpProxyAgent } = require("http-proxy-agent");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+
+function getProxyAgents() {
+  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
+  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy || httpProxy;
+
+  return {
+    http: httpProxy ? new HttpProxyAgent(httpProxy) : undefined,
+    https: httpsProxy ? new HttpsProxyAgent(httpsProxy) : undefined,
+  };
+}
 
 async function getDownloadUrl(
   ownerRepo, customTag,
@@ -61,10 +73,12 @@ async function getDownloadUrl(
   const { url, headers } = requestOptions;
   headers.authorization = `token ${token}`;
 
+  const agents = getProxyAgents();
   const response = await got(url, {
     followRedirect: false,
     method: "HEAD",
     headers,
+    agent: agents,
   });
 
   return response.headers.location;
@@ -96,6 +110,7 @@ async function download(opts) {
     }
   }
 
+  const agents = getProxyAgents();
   let downloadOpts = {
     version: opts.version,
     platform: opts.platform,
@@ -107,6 +122,7 @@ async function download(opts) {
       getProgressCallback: (progress) => {
         if (bar) bar.update(progress.percent);
       },
+      agent: agents,
     },
   };
 
