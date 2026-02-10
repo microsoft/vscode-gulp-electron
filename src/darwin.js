@@ -12,6 +12,22 @@ function getOriginalAppName(opts) {
   return semver.gte(opts.version, "0.24.0") ? "Electron" : "Atom";
 }
 
+function getOriginalMiniAppName(opts) {
+  return getOriginalAppName(opts) + " MiniApp";
+}
+
+function getOriginalMiniAppFullName(opts) {
+  return getOriginalMiniAppName(opts) + ".app";
+}
+
+function getMiniAppName(opts) {
+  return opts.darwinMiniAppName || opts.productName + " MiniApp";
+}
+
+function getMiniAppFullName(opts) {
+  return getMiniAppName(opts) + ".app";
+}
+
 function getOriginalAppFullName(opts) {
   return getOriginalAppName(opts) + ".app";
 }
@@ -281,6 +297,177 @@ function patchHelperInfoPlist(opts) {
   return es.duplex(input, es.merge(output, icons));
 }
 
+function patchMiniAppInfoPlist(opts) {
+  if (!opts.darwinMiniAppName) {
+    return es.through();
+  }
+
+  var input = es.through();
+  var output = input.pipe(
+    es.map(function (f, cb) {
+      // Match MiniApp's Info.plist at Contents/Applications/*/Contents/Info.plist
+      const match = /Contents\/Applications\/[^\/]+\.app\/Contents\/Info.plist$/i.exec(
+        f.relative);
+      if (!match) {
+        return cb(null, f);
+      }
+
+      var contents = "";
+
+      f.contents.on("error", function (err) {
+        cb(err);
+      });
+
+      f.contents.on("data", function (d) {
+        contents += d;
+      });
+
+      f.contents.on("end", function () {
+        var infoPlist = plist.parse(contents.toString("utf8"));
+
+        var miniAppName = getMiniAppName(opts);
+
+        // Bundle identifier
+        if (opts.darwinMiniAppBundleIdentifier) {
+          infoPlist["CFBundleIdentifier"] = opts.darwinMiniAppBundleIdentifier;
+        } else if (opts.darwinBundleIdentifier) {
+          infoPlist["CFBundleIdentifier"] = opts.darwinBundleIdentifier + ".miniapp";
+        }
+
+        // Name and display name
+        infoPlist["CFBundleName"] = miniAppName;
+        infoPlist["CFBundleDisplayName"] = opts.darwinMiniAppDisplayName || miniAppName;
+
+        // Executable name
+        infoPlist["CFBundleExecutable"] = miniAppName;
+
+        // Version info
+        infoPlist["CFBundleVersion"] = opts.productVersion;
+        infoPlist["CFBundleShortVersionString"] = opts.productVersion;
+
+        // Icon file
+        if (opts.darwinMiniAppIcon) {
+          infoPlist["CFBundleIconFile"] = path.basename(opts.darwinMiniAppIcon);
+        }
+
+        // Copyright
+        if (opts.copyright) {
+          infoPlist["NSHumanReadableCopyright"] = opts.copyright;
+        }
+
+        // Update host bundle reference
+        if (opts.darwinBundleIdentifier) {
+          infoPlist["ElectronHostBundleId"] = opts.darwinBundleIdentifier;
+        }
+
+        f.contents = Buffer.from(plist.build(infoPlist), "utf8");
+        cb(null, f);
+      });
+    })
+  );
+
+  return es.duplex(input, output);
+}
+
+function patchMiniAppHelperInfoPlist(opts) {
+  if (!opts.darwinMiniAppName) {
+    return es.through();
+  }
+
+  var input = es.through();
+  var output = input.pipe(
+    es.map(function (f, cb) {
+      // Match MiniApp Helper's Info.plist at Contents/Applications/*/Contents/Frameworks/Helper*.app/Contents/Info.plist
+      const match = /Contents\/Applications\/[^\/]+\.app\/Contents\/Frameworks\/[^\/]+\ Helper( \(\w+\))?\.app\/Contents\/Info.plist$/i.exec(
+        f.relative);
+      if (!match) {
+        return cb(null, f);
+      }
+
+      var contents = "";
+
+      f.contents.on("error", function (err) {
+        cb(err);
+      });
+
+      f.contents.on("data", function (d) {
+        contents += d;
+      });
+
+      f.contents.on("end", function () {
+        var infoPlist = plist.parse(contents.toString("utf8"));
+        var suffix = match[1] ?? "";
+
+        var miniAppName = getMiniAppName(opts);
+        var helperName = miniAppName + " Helper" + suffix;
+
+        // Bundle identifier
+        if (opts.darwinMiniAppBundleIdentifier) {
+          infoPlist["CFBundleIdentifier"] = opts.darwinMiniAppBundleIdentifier + ".helper";
+        } else if (opts.darwinBundleIdentifier) {
+          infoPlist["CFBundleIdentifier"] = opts.darwinBundleIdentifier + ".miniapp.helper";
+        }
+
+        infoPlist["CFBundleName"] = helperName;
+
+        if (infoPlist["CFBundleDisplayName"]) {
+          infoPlist["CFBundleDisplayName"] = helperName;
+        }
+
+        if (infoPlist["CFBundleExecutable"]) {
+          infoPlist["CFBundleExecutable"] = helperName;
+        }
+
+        f.contents = Buffer.from(plist.build(infoPlist), "utf8");
+        cb(null, f);
+      });
+    })
+  );
+
+  return es.duplex(input, output);
+}
+
+function patchMiniAppIcon(opts) {
+  if (!opts.darwinMiniAppName || !opts.darwinMiniAppIcon) {
+    return es.through();
+  }
+
+  var originalIconPath = path.join(
+    getOriginalAppFullName(opts),
+    "Contents",
+    "Applications",
+    getOriginalMiniAppFullName(opts),
+    "Contents",
+    "Resources",
+    "miniapp.icns"
+  );
+  var iconPath = path.join(
+    getOriginalAppFullName(opts),
+    "Contents",
+    "Applications",
+    getOriginalMiniAppFullName(opts),
+    "Contents",
+    "Resources",
+    path.basename(opts.darwinMiniAppIcon)
+  );
+
+  var pass = es.through();
+
+  // filter out original icon
+  var src = pass.pipe(
+    es.mapSync(function (f) {
+      if (f.relative !== originalIconPath) {
+        return f;
+      }
+    })
+  );
+
+  // add custom icon
+  var icon = vfs.src(opts.darwinMiniAppIcon).pipe(rename(iconPath));
+
+  return es.duplex(pass, es.merge(src, icon));
+}
+
 function addCredits(opts) {
   if (!opts.darwinCredits) {
     return es.through();
@@ -395,6 +582,107 @@ function renameAppHelper(opts) {
   });
 }
 
+function renameMiniApp(opts) {
+  if (!opts.darwinMiniAppName) {
+    return es.through();
+  }
+
+  var originalMiniAppName = getOriginalMiniAppName(opts);
+  var originalMiniAppFullName = getOriginalMiniAppFullName(opts);
+  var miniAppName = getMiniAppName(opts);
+  var miniAppFullName = getMiniAppFullName(opts);
+
+  return rename(function (path) {
+    // Check if this is inside the Applications folder
+    if (!/Contents\/Applications/.test(path.dirname) && 
+        !(path.dirname === "." && path.basename === originalMiniAppName && /Contents\/Applications$/.test(path.dirname))) {
+      // Not a miniapp path, but check if dirname contains Applications
+      if (!path.dirname.includes("Contents/Applications")) {
+        return;
+      }
+    }
+
+    // Rename the MiniApp.app folder itself
+    if (
+      /Contents\/Applications$/.test(path.dirname) &&
+      path.basename === originalMiniAppName &&
+      path.extname === ".app"
+    ) {
+      path.basename = miniAppName;
+      return;
+    }
+
+    // Rename paths inside MiniApp.app
+    if (path.dirname.includes(originalMiniAppFullName)) {
+      path.dirname = path.dirname.replace(
+        originalMiniAppFullName,
+        miniAppFullName
+      );
+    }
+
+    // Rename the MiniApp executable in MacOS folder
+    if (
+      /Contents\/Applications\/[^\/]+\.app\/Contents\/MacOS$/.test(path.dirname) &&
+      path.basename === originalMiniAppName &&
+      path.extname === ""
+    ) {
+      path.basename = miniAppName;
+    }
+  });
+}
+
+function renameMiniAppHelper(opts) {
+  if (!opts.darwinMiniAppName) {
+    return es.through();
+  }
+
+  var originalMiniAppHelperName = getOriginalMiniAppName(opts) + " Helper";
+  var miniAppName = getMiniAppName(opts);
+
+  return rename(function (path) {
+    // Only process paths inside MiniApp's Frameworks
+    if (!/Contents\/Applications\/[^\/]+\.app\/Contents\/Frameworks/.test(path.dirname) &&
+        !/Contents\/Applications\/[^\/]+\.app\/Contents\/Frameworks$/.test(path.dirname + "/" + path.basename)) {
+      // Check if the path is the helper app folder itself
+      if (!/Contents\/Applications/.test(path.dirname)) {
+        return;
+      }
+    }
+    
+    // Rename the helper .app folder
+    if (
+      /Contents\/Applications\/[^\/]+\.app\/Contents\/Frameworks$/.test(path.dirname) &&
+      path.extname === ".app"
+    ) {
+      var basenameMatch = /^Electron MiniApp Helper( \(\w+\))?$/.exec(path.basename);
+      if (basenameMatch) {
+        var suffix = basenameMatch[1] || "";
+        path.basename = miniAppName + " Helper" + suffix;
+        return;
+      }
+    }
+
+    // Rename paths inside MiniApp Helper.app
+    var helperDirMatch = /Electron\ MiniApp\ Helper( \(\w+\))?\.app/.exec(path.dirname);
+    if (helperDirMatch) {
+      var suffix = helperDirMatch[1] || "";
+      path.dirname = path.dirname.replace(
+        /Electron\ MiniApp\ Helper( \(\w+\))?\.app/,
+        miniAppName + " Helper$1.app"
+      );
+
+      // Rename the helper executable
+      var execMatch = /Contents\/Applications\/[^\/]+\.app\/Contents\/Frameworks\/[^\/]+\.app\/Contents\/MacOS$/.test(path.dirname);
+      if (execMatch) {
+        var execNameMatch = /^Electron MiniApp Helper( \(\w+\))?$/.exec(path.basename);
+        if (execNameMatch && path.extname === "") {
+          path.basename = miniAppName + " Helper" + (execNameMatch[1] || "");
+        }
+      }
+    }
+  });
+}
+
 exports.patch = function (opts) {
   var pass = es.through();
 
@@ -403,11 +691,16 @@ exports.patch = function (opts) {
     .pipe(patchIcon(opts))
     .pipe(patchInfoPlist(opts))
     .pipe(patchHelperInfoPlist(opts))
+    .pipe(patchMiniAppInfoPlist(opts))
+    .pipe(patchMiniAppHelperInfoPlist(opts))
+    .pipe(patchMiniAppIcon(opts))
     .pipe(createEntitlementsPlist(opts))
     .pipe(addCredits(opts))
     .pipe(moveChromiumLicense(opts))
     .pipe(renameApp(opts))
-    .pipe(renameAppHelper(opts));
+    .pipe(renameAppHelper(opts))
+    .pipe(renameMiniApp(opts))
+    .pipe(renameMiniAppHelper(opts));
 
   return es.duplex(pass, src);
 };
