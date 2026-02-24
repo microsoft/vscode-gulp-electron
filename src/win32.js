@@ -60,76 +60,113 @@ exports.getAppPath = function (opts) {
   return path.join("resources", "app");
 };
 
-function patchExecutable(opts) {
-  return es.map(function (f, cb) {
-    if (
-      f.relative !== getOriginalAppFullName(opts) ||
-      process.platform !== "win32"
-    ) {
-      return cb(null, f);
+function applyRcedit(f, patch, cb) {
+  var tempPath = temp.path();
+  var ostream = fs.createWriteStream(tempPath);
+
+  f.contents.pipe(ostream);
+  ostream.on("close", function () {
+    // Remove codesignature before editing exe file
+    const signToolPath = getSignTool();
+    const {error} = spawnSync(signToolPath, ["remove", "/s", tempPath]);
+    if (error) {
+      return cb(error);
     }
 
-    var patch = {
-      "version-string": {
-        CompanyName: opts.companyName || "GitHub, Inc.",
-        FileDescription: opts.productAppName || opts.productName,
-        LegalCopyright:
-          opts.copyright ||
-          "Copyright (C) 2014 GitHub, Inc. All rights reserved",
-        ProductName: opts.productAppName || opts.productName,
-        ProductVersion: opts.productVersion,
-      },
-      "file-version": opts.productVersion,
-      "product-version": opts.productVersion,
-    };
+    rcedit(tempPath, patch).then(() => {
+      fs.readFile(tempPath, function (err, data) {
+        if (err) {
+          return cb(err);
+        }
 
-    if (opts.createVersionedResources) {
-      if (!opts.productVersionString) {
-        throw new Error("productVersionString must be defined.");
-      }
-      patch["resource-string"] = {
-        2: opts.productVersionString
-      };
-    }
+        f.contents = data;
 
-    if (opts.winIcon) {
-      patch.icon = opts.winIcon;
-    }
-
-    var tempPath = temp.path();
-    var ostream = fs.createWriteStream(tempPath);
-
-    f.contents.pipe(ostream);
-    ostream.on("close", function () {
-      // Remove codesignature before editing exe file
-      const signToolPath = getSignTool();
-      const {error} = spawnSync(signToolPath, ["remove", "/s", tempPath]);
-      if (error) {
-        return cb(error);
-      }
-
-      rcedit(tempPath, patch).then(() => {
-        fs.readFile(tempPath, function (err, data) {
+        fs.unlink(tempPath, function (err) {
           if (err) {
             return cb(err);
           }
 
-          f.contents = data;
-
-          fs.unlink(tempPath, function (err) {
-            if (err) {
-              return cb(err);
-            }
-
-            cb(null, f);
-          });
+          cb(null, f);
         });
-      }).catch(err => {
-        if (err) {
-          return cb(err);
-        }
       });
+    }).catch(err => {
+      if (err) {
+        return cb(err);
+      }
     });
+  });
+}
+
+function patchExecutable(opts) {
+  return es.map(function (f, cb) {
+    if (process.platform !== "win32") {
+      return cb(null, f);
+    }
+
+    if (f.relative === getOriginalAppFullName(opts)) {
+      var patch = {
+        "version-string": {
+          CompanyName: opts.companyName || "GitHub, Inc.",
+          FileDescription: opts.productAppName || opts.productName,
+          LegalCopyright:
+            opts.copyright ||
+            "Copyright (C) 2014 GitHub, Inc. All rights reserved",
+          ProductName: opts.productAppName || opts.productName,
+          ProductVersion: opts.productVersion,
+        },
+        "file-version": opts.productVersion,
+        "product-version": opts.productVersion,
+      };
+
+      if (opts.createVersionedResources) {
+        if (!opts.productVersionString) {
+          throw new Error("productVersionString must be defined.");
+        }
+        patch["resource-string"] = {
+          2: opts.productVersionString
+        };
+      }
+
+      if (opts.winIcon) {
+        patch.icon = opts.winIcon;
+      }
+
+      return applyRcedit(f, patch, cb);
+    }
+
+    if (opts.win32ProxyAppName && f.relative === "electron_proxy.exe") {
+      var patch = {
+        "version-string": {
+          CompanyName: opts.companyName || "GitHub, Inc.",
+          FileDescription: opts.win32ProxyAppName,
+          LegalCopyright:
+            opts.copyright ||
+            "Copyright (C) 2014 GitHub, Inc. All rights reserved",
+          ProductName: opts.win32ProxyAppName,
+          ProductVersion: opts.productVersion,
+        },
+        "file-version": opts.productVersion,
+        "product-version": opts.productVersion,
+        "resource-string": {
+          3: `${opts.productName}.exe`
+        },
+      };
+
+      if (opts.createVersionedResources) {
+        if (!opts.productVersionString) {
+          throw new Error("productVersionString must be defined.");
+        }
+        patch["resource-string"][2] = opts.productVersionString;
+      }
+
+      if (opts.win32ProxyIcon) {
+        patch.icon = opts.win32ProxyIcon;
+      }
+
+      return applyRcedit(f, patch, cb);
+    }
+
+    return cb(null, f);
   });
 }
 
@@ -145,12 +182,12 @@ function removeDefaultApp() {
 
 function renameApp(opts) {
   return rename(function (path) {
-    if (
-      path.dirname === "." &&
-      path.basename === getOriginalAppName(opts) &&
-      path.extname === ".exe"
-    ) {
-      path.basename = opts.productName;
+    if (path.dirname === "." && path.extname === ".exe") {
+      if (path.basename === getOriginalAppName(opts)) {
+        path.basename = opts.productName;
+      } else if (opts.win32ProxyAppName && path.basename === "electron_proxy") {
+        path.basename = opts.win32ProxyAppName;
+      }
     }
   });
 }
@@ -164,6 +201,14 @@ function moveFilesExceptExecutable(opts) {
     // Skip if the file is the renamed executable
     if (
       f.relative === `${opts.productName}.exe`
+    ) {
+      return f;
+    }
+
+    // Skip if the file is the renamed proxy executable
+    if (
+      opts.win32ProxyAppName &&
+      f.relative === `${opts.win32ProxyAppName}.exe`
     ) {
       return f;
     }
