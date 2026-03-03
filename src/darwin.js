@@ -355,6 +355,19 @@ function patchMiniAppInfoPlist(opts) {
           infoPlist["NSHumanReadableCopyright"] = opts.copyright;
         }
 
+        // URL types (protocol handlers)
+        if (opts.darwinMiniAppBundleURLTypes) {
+          infoPlist["CFBundleURLTypes"] = opts.darwinMiniAppBundleURLTypes.map(
+            function (type) {
+              return {
+                CFBundleTypeRole: type.role,
+                CFBundleURLName: type.name,
+                CFBundleURLSchemes: type.urlSchemes,
+              };
+            }
+          );
+        }
+
         // Update host bundle reference
         if (opts.darwinBundleIdentifier) {
           infoPlist["ElectronHostBundleId"] = opts.darwinBundleIdentifier;
