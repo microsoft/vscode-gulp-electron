@@ -102,6 +102,7 @@ The following options are **optional**:
 - **Darwin**
 
   - `darwinIcon` - path to an `.icns` file
+  - `darwinAssetsCar` - path to an `Assets.car` file (applied to main app and miniapp when `darwinMiniAppName` is set)
   - `darwinHelpBookFolder` - the `CFBundleHelpBookFolder` value
   - `darwinHelpBookName` - the `CFBundleHelpBookName` value
   - `darwinBundleDocumentTypes` - ([reference](https://developer.apple.com/library/ios/documentation/filemanagement/conceptual/documentinteraction_topicsforios/Articles/RegisteringtheFileTypesYourAppSupports.html)) array of dictionaries, each containing the following structure:
