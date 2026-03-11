@@ -87,6 +87,63 @@ function patchIcon(opts) {
   return es.duplex(pass, es.merge(src, icon));
 }
 
+function patchAssetsCar(opts) {
+  if (!opts.darwinAssetsCar) {
+    return es.through();
+  }
+
+  var assetsCarPath = path.join(
+    getOriginalAppFullName(opts),
+    "Contents",
+    "Resources",
+    "Assets.car"
+  );
+  var pass = es.through();
+
+  // Filter out the existing Assets.car so the provided one replaces it.
+  var src = pass.pipe(
+    es.mapSync(function (f) {
+      if (f.relative !== assetsCarPath) {
+        return f;
+      }
+    })
+  );
+
+  var assets = vfs.src(opts.darwinAssetsCar).pipe(rename(assetsCarPath));
+
+  return es.duplex(pass, es.merge(src, assets));
+}
+
+function patchMiniAppAssetsCar(opts) {
+  if (!opts.darwinMiniAppName || !opts.darwinMiniAppAssetsCar) {
+    return es.through();
+  }
+
+  var assetsCarPath = path.join(
+    getOriginalAppFullName(opts),
+    "Contents",
+    "Applications",
+    getOriginalMiniAppFullName(opts),
+    "Contents",
+    "Resources",
+    "Assets.car"
+  );
+  var pass = es.through();
+
+  // Filter out the existing Assets.car so the provided one replaces it.
+  var src = pass.pipe(
+    es.mapSync(function (f) {
+      if (f.relative !== assetsCarPath) {
+        return f;
+      }
+    })
+  );
+
+  var assets = vfs.src(opts.darwinMiniAppAssetsCar).pipe(rename(assetsCarPath));
+
+  return es.duplex(pass, es.merge(src, assets));
+}
+
 function patchInfoPlist(opts) {
   var contentsPath = path.join(getOriginalAppFullName(opts), "Contents");
   var resourcesPath = path.join(contentsPath, "Resources");
@@ -113,6 +170,7 @@ function patchInfoPlist(opts) {
 
       f.contents.on("end", function () {
         var infoPlist = plist.parse(contents.toString("utf8"));
+        var iconName = opts.productName || "AppIcon";
 
         opts.darwinBundleIdentifier &&
           (infoPlist["CFBundleIdentifier"] = opts.darwinBundleIdentifier);
@@ -127,6 +185,7 @@ function patchInfoPlist(opts) {
         opts.copyright &&
           (infoPlist["NSHumanReadableCopyright"] = opts.copyright);
         infoPlist["CFBundleIconFile"] = opts.productName + ".icns";
+        infoPlist["CFBundleIconName"] = iconName;
 
         if (opts.darwinExecutable) {
           infoPlist["CFBundleExecutable"] = opts.darwinExecutable;
@@ -326,6 +385,7 @@ function patchMiniAppInfoPlist(opts) {
         var infoPlist = plist.parse(contents.toString("utf8"));
 
         var miniAppName = getMiniAppName(opts);
+        var iconName = miniAppName || "AppIcon";
 
         // Bundle identifier
         if (opts.darwinMiniAppBundleIdentifier) {
@@ -349,6 +409,7 @@ function patchMiniAppInfoPlist(opts) {
         if (opts.darwinMiniAppIcon) {
           infoPlist["CFBundleIconFile"] = path.basename(opts.darwinMiniAppIcon);
         }
+        infoPlist["CFBundleIconName"] = iconName;
 
         // Copyright
         if (opts.copyright) {
@@ -702,11 +763,13 @@ exports.patch = function (opts) {
   var src = pass
     .pipe(opts.keepDefaultApp ? es.through() : removeDefaultApp(opts))
     .pipe(patchIcon(opts))
+    .pipe(patchAssetsCar(opts))
     .pipe(patchInfoPlist(opts))
     .pipe(patchHelperInfoPlist(opts))
     .pipe(patchMiniAppInfoPlist(opts))
     .pipe(patchMiniAppHelperInfoPlist(opts))
     .pipe(patchMiniAppIcon(opts))
+    .pipe(patchMiniAppAssetsCar(opts))
     .pipe(createEntitlementsPlist(opts))
     .pipe(addCredits(opts))
     .pipe(moveChromiumLicense(opts))

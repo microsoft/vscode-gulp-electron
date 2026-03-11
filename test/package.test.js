@@ -114,6 +114,7 @@ describe("electron", function () {
           var infoPlist = plist.parse(files[infoPlistPath].contents.toString("utf8"));
           assert.equal(infoPlist["CFBundleName"], "FakeTemplateApp")
           assert.equal(infoPlist["CFBundleDisplayName"], "FakeTemplateApp")
+          assert.equal(infoPlist["CFBundleIconName"], "FakeTemplateApp")
 
           // Added helper Info.plist validation
           var helperBasePath = path.join(
