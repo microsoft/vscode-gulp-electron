@@ -29,7 +29,9 @@ function createFile(relativePath, contents) {
   });
 }
 
-describe("darwin patch", function () {
+var describeDarwin = process.platform === "darwin" ? describe : describe.skip;
+
+describeDarwin("darwin patch", function () {
   it("should use separate assets options for app and miniapp", function (cb) {
     var mainAssetsPath = path.join(__dirname, "fixtures", "AssetsMain.car");
     var miniAssetsPath = path.join(__dirname, "fixtures", "AssetsMini.car");
