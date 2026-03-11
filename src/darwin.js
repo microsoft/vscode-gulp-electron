@@ -115,7 +115,7 @@ function patchAssetsCar(opts) {
 }
 
 function patchMiniAppAssetsCar(opts) {
-  if (!opts.darwinMiniAppName || !opts.darwinAssetsCar) {
+  if (!opts.darwinMiniAppName || !opts.darwinMiniAppAssetsCar) {
     return es.through();
   }
 
@@ -139,7 +139,7 @@ function patchMiniAppAssetsCar(opts) {
     })
   );
 
-  var assets = vfs.src(opts.darwinAssetsCar).pipe(rename(assetsCarPath));
+  var assets = vfs.src(opts.darwinMiniAppAssetsCar).pipe(rename(assetsCarPath));
 
   return es.duplex(pass, es.merge(src, assets));
 }
