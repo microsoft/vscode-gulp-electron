@@ -42,6 +42,16 @@ function createStreamFile(relativePath, contents) {
   });
 }
 
+function createDirectory(relativePath) {
+  return new File({
+    cwd: process.cwd(),
+    base: process.cwd(),
+    path: path.join(process.cwd(), relativePath),
+    contents: null,
+    stat: { isDirectory: function () { return true; } },
+  });
+}
+
 var describeDarwin = process.platform === "darwin" ? describe : describe.skip;
 
 describeDarwin("darwin patch", function () {
@@ -171,6 +181,13 @@ describeDarwin("darwin patch", function () {
       "Electron MiniApp"
     );
 
+    var miniAppDir = path.join(
+      "Electron.app",
+      "Contents",
+      "Applications",
+      "Electron MiniApp.app"
+    );
+
     runPatch(
       {
         version: "35.0.0",
@@ -183,6 +200,7 @@ describeDarwin("darwin patch", function () {
       [
         createStreamFile(miniInfoPlist, miniAppPlist),
         createFile(miniExec, "exec"),
+        createDirectory(miniAppDir),
       ],
       function (err, files) {
         if (err) {
@@ -199,6 +217,16 @@ describeDarwin("darwin patch", function () {
           "Info.plist"
         );
         assert(files[renamedBundlePlist], "Bundle should use darwinMiniAppDisplayName for .app name");
+
+        var shortNameBundlePlist = path.join(
+          "TestApp.app",
+          "Contents",
+          "Applications",
+          "Agents - Insiders.app",
+          "Contents",
+          "Info.plist"
+        );
+        assert(!files[shortNameBundlePlist], "Bundle must NOT use short name for .app directory");
 
         var infoPlist = plist.parse(files[renamedBundlePlist].contents.toString("utf8"));
         // CFBundleDisplayName should be the display name
@@ -219,6 +247,22 @@ describeDarwin("darwin patch", function () {
           "Agents - Insiders"
         );
         assert(files[renamedExec], "Executable should use darwinMiniAppName (short name)");
+
+        var renamedAppDir = path.join(
+          "TestApp.app",
+          "Contents",
+          "Applications",
+          "Visual Studio Code Agents - Insiders.app"
+        );
+        assert(files[renamedAppDir], ".app directory should use darwinMiniAppDisplayName");
+
+        var shortNameAppDir = path.join(
+          "TestApp.app",
+          "Contents",
+          "Applications",
+          "Agents - Insiders.app"
+        );
+        assert(!files[shortNameAppDir], ".app directory must NOT use short name");
 
         cb();
       }

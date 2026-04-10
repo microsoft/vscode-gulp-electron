@@ -668,6 +668,7 @@ function renameMiniApp(opts) {
   var originalMiniAppName = getOriginalMiniAppName(opts);
   var originalMiniAppFullName = getOriginalMiniAppFullName(opts);
   var miniAppName = getMiniAppName(opts);
+  var miniAppBundleName = getMiniAppBundleName(opts);
   var miniAppFullName = getMiniAppFullName(opts);
 
   return rename(function (path) {
@@ -686,7 +687,7 @@ function renameMiniApp(opts) {
       path.basename === originalMiniAppName &&
       path.extname === ".app"
     ) {
-      path.basename = miniAppName;
+      path.basename = miniAppBundleName;
       return;
     }
 
