@@ -24,8 +24,12 @@ function getMiniAppName(opts) {
   return opts.darwinMiniAppName || opts.productName + " MiniApp";
 }
 
+function getMiniAppBundleName(opts) {
+  return opts.darwinMiniAppDisplayName || getMiniAppName(opts);
+}
+
 function getMiniAppFullName(opts) {
-  return getMiniAppName(opts) + ".app";
+  return getMiniAppBundleName(opts) + ".app";
 }
 
 function getOriginalAppFullName(opts) {

@@ -1,6 +1,6 @@
 {
   "name": "@vscode/gulp-electron",
-  "version": "1.41.0",
+  "version": "1.41.1",
   "description": "gulp plugin for packaging Electron into VS Code",
   "main": "src/index.js",
   "scripts": {
@@ -48,6 +48,6 @@
   },
   "devDependencies": {
     "gulp-buffer": "0.0.2",
-    "mocha": "^10.2.0"
+    "mocha": "^11.7.5"
   }
 }
