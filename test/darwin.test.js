@@ -29,6 +29,19 @@ function createFile(relativePath, contents) {
   });
 }
 
+function createStreamFile(relativePath, contents) {
+  var Readable = require("stream").Readable;
+  var s = new Readable();
+  s.push(contents);
+  s.push(null);
+  return new File({
+    cwd: process.cwd(),
+    base: process.cwd(),
+    path: path.join(process.cwd(), relativePath),
+    contents: s,
+  });
+}
+
 var describeDarwin = process.platform === "darwin" ? describe : describe.skip;
 
 describeDarwin("darwin patch", function () {
@@ -119,6 +132,94 @@ describeDarwin("darwin patch", function () {
         assert(files[miniTarget]);
         assert.equal(files[mainTarget].contents.toString("utf8"), "main-assets-car\n");
         assert.equal(files[miniTarget].contents.toString("utf8"), "old-mini");
+        cb();
+      }
+    );
+  });
+
+  it("should use darwinMiniAppDisplayName for the .app bundle name", function (cb) {
+    var plist = require("plist");
+
+    // The MiniApp's Info.plist lives under the original "Electron MiniApp.app" path
+    var miniInfoPlist = path.join(
+      "Electron.app",
+      "Contents",
+      "Applications",
+      "Electron MiniApp.app",
+      "Contents",
+      "Info.plist"
+    );
+
+    var miniAppPlist = plist.build({
+      CFBundleName: "Electron MiniApp",
+      CFBundleDisplayName: "Electron MiniApp",
+      CFBundleExecutable: "Electron MiniApp",
+      CFBundleIdentifier: "com.electron.miniapp",
+      CFBundleVersion: "1.0.0",
+      CFBundleShortVersionString: "1.0.0",
+      CFBundleIconName: "AppIcon",
+    });
+
+    // The executable inside MacOS uses the original name
+    var miniExec = path.join(
+      "Electron.app",
+      "Contents",
+      "Applications",
+      "Electron MiniApp.app",
+      "Contents",
+      "MacOS",
+      "Electron MiniApp"
+    );
+
+    runPatch(
+      {
+        version: "35.0.0",
+        productName: "TestApp",
+        productVersion: "1.0.0",
+        darwinMiniAppName: "Agents - Insiders",
+        darwinMiniAppDisplayName: "Visual Studio Code Agents - Insiders",
+        darwinMiniAppBundleIdentifier: "com.test.agents",
+      },
+      [
+        createStreamFile(miniInfoPlist, miniAppPlist),
+        createFile(miniExec, "exec"),
+      ],
+      function (err, files) {
+        if (err) {
+          return cb(err);
+        }
+
+        // The .app bundle should be renamed to the display name
+        var renamedBundlePlist = path.join(
+          "TestApp.app",
+          "Contents",
+          "Applications",
+          "Visual Studio Code Agents - Insiders.app",
+          "Contents",
+          "Info.plist"
+        );
+        assert(files[renamedBundlePlist], "Bundle should use darwinMiniAppDisplayName for .app name");
+
+        var infoPlist = plist.parse(files[renamedBundlePlist].contents.toString("utf8"));
+        // CFBundleDisplayName should be the display name
+        assert.equal(infoPlist["CFBundleDisplayName"], "Visual Studio Code Agents - Insiders");
+        // CFBundleName should be the short name (used for executable)
+        assert.equal(infoPlist["CFBundleName"], "Agents - Insiders");
+        // CFBundleExecutable should be the short name
+        assert.equal(infoPlist["CFBundleExecutable"], "Agents - Insiders");
+
+        // The executable should be renamed to the short name, inside the display-name bundle
+        var renamedExec = path.join(
+          "TestApp.app",
+          "Contents",
+          "Applications",
+          "Visual Studio Code Agents - Insiders.app",
+          "Contents",
+          "MacOS",
+          "Agents - Insiders"
+        );
+        assert(files[renamedExec], "Executable should use darwinMiniAppName (short name)");
+
         cb();
       }
     );
