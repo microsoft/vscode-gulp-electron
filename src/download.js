@@ -11,6 +11,58 @@ const { Octokit } = require("@octokit/rest");
 const { got } = require("got");
 const sumchecker = require('sumchecker');
 
+const TRANSIENT_NETWORK_ERROR_CODES = new Set([
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "ENOTFOUND",
+  "ENETUNREACH",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+]);
+
+function isTransientNetworkError(err) {
+  if (!err) {
+    return false;
+  }
+  if (err.code && TRANSIENT_NETWORK_ERROR_CODES.has(err.code)) {
+    return true;
+  }
+  // got wraps the underlying cause; check it as well.
+  if (err.cause && err.cause.code && TRANSIENT_NETWORK_ERROR_CODES.has(err.cause.code)) {
+    return true;
+  }
+  return false;
+}
+
+async function withRetry(name, fn, { retries = 5, baseDelayMs = 2000 } = {}) {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt++;
+      if (attempt > retries || !isTransientNetworkError(err)) {
+        throw err;
+      }
+      const delay = Math.min(baseDelayMs * Math.pow(2, attempt - 1), 30000);
+      const code = (err && err.code) || (err.cause && err.cause.code) || "unknown";
+      console.warn(
+        `[gulp-electron] ${name} failed with ${code} (attempt ${attempt}/${retries}); retrying in ${delay}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+const GOT_RETRY_OPTIONS = {
+  limit: 5,
+  methods: ["GET", "HEAD"],
+  errorCodes: Array.from(TRANSIENT_NETWORK_ERROR_CODES),
+  backoffLimit: 30000,
+};
+
 async function getDownloadUrl(
   ownerRepo, customTag,
   { version, platform, arch, token, artifactName, artifactSuffix }
@@ -61,11 +113,14 @@ async function getDownloadUrl(
   const { url, headers } = requestOptions;
   headers.authorization = `token ${token}`;
 
-  const response = await got(url, {
-    followRedirect: false,
-    method: "HEAD",
-    headers,
-  });
+  const response = await withRetry("HEAD release asset", () =>
+    got(url, {
+      followRedirect: false,
+      method: "HEAD",
+      headers,
+      retry: GOT_RETRY_OPTIONS,
+    })
+  );
 
   return response.headers.location;
 }
@@ -119,7 +174,9 @@ async function download(opts) {
   );
 
   if (opts.repo) {
-    const url = await getDownloadUrl(opts.repo, opts.tag, downloadOpts);
+    const url = await withRetry("resolve release asset URL", () =>
+      getDownloadUrl(opts.repo, opts.tag, downloadOpts)
+    );
 
     downloadOpts = {
       ...downloadOpts,
@@ -134,7 +191,9 @@ async function download(opts) {
   const start = new Date();
   bar.start = start;
 
-  return await downloadArtifact(downloadOpts);
+  return await withRetry(`download ${opts.artifactName || "electron"}`, () =>
+    downloadArtifact(downloadOpts)
+  );
 }
 
 function downloadStream(opts) {
