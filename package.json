@@ -31,7 +31,7 @@
     "@electron/get": "^5.0.0",
     "@octokit/rest": "^22.0.0",
     "event-stream": "3.3.4",
-    "got": "^14.4.5",
+    "got": "^15.0.5",
     "gulp-filter": "^5.1.0",
     "gulp-rename": "1.2.2",
     "gulp-symdest": "^1.2.0",
