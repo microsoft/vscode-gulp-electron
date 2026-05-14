@@ -28,9 +28,10 @@
   },
   "homepage": "https://github.com/microsoft/vscode-gulp-electron",
   "dependencies": {
-    "@electron/get": "^4.0.1",
+    "@electron/get": "^5.0.0",
     "@octokit/rest": "^22.0.0",
     "event-stream": "3.3.4",
+    "got": "^14.4.5",
     "gulp-filter": "^5.1.0",
     "gulp-rename": "1.2.2",
     "gulp-symdest": "^1.2.0",
@@ -49,5 +50,9 @@
   "devDependencies": {
     "gulp-buffer": "0.0.2",
     "mocha": "^11.7.5"
+  },
+  "overrides": {
+    "diff": "^9.0.0",
+    "serialize-javascript": "^7.0.5"
   }
 }
