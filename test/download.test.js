@@ -6,59 +6,6 @@ function isBlockedByDnsProxy(err) {
   return Boolean(err && /Blocked by DNS monitoring proxy/.test(err.message));
 }
 
-function collectFirstMatchingFile(stream, matcher, cb) {
-  var settled = false;
-  var waitingForMatchContents = false;
-
-  function done(err, file) {
-    if (settled) {
-      return;
-    }
-
-    settled = true;
-
-    if (typeof stream.destroy === "function") {
-      stream.destroy();
-    }
-
-    cb(err, file);
-  }
-
-  stream
-    .on("data", function (f) {
-      if (settled || !matcher(f)) {
-        return;
-      }
-
-      if (Buffer.isBuffer(f.contents)) {
-        return done(null, f);
-      }
-
-      waitingForMatchContents = true;
-      var chunks = [];
-      f.contents
-        .on("data", function (chunk) {
-          chunks.push(Buffer.from(chunk));
-        })
-        .on("error", done)
-        .on("end", function () {
-          waitingForMatchContents = false;
-          f.contents = Buffer.concat(chunks);
-          done(null, f);
-        });
-    })
-    .on("error", function (err) {
-      done(err);
-    })
-    .on("end", function () {
-      if (waitingForMatchContents) {
-        return;
-      }
-
-      done(null, null);
-    });
-}
-
 describe("download", function () {
   this.timeout(1000 * 60 * 5);
 
@@ -191,37 +138,76 @@ describe("download", function () {
   });
 
   it("should replace ffmpeg", function (cb) {
-    collectFirstMatchingFile(download({
+    var finished = false;
+
+    function done(err) {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+      cb(err);
+    }
+
+    var originalSize;
+    var original = download({
       version: "35.0.0",
       platform: "darwin",
       token: process.env["GITHUB_TOKEN"],
-    }), function (f) {
-      return /libffmpeg\.dylib$/.test(f.relative);
-    }, function (err, originalFile) {
-      if (err) {
-        return cb(err);
-      }
+    });
 
-      collectFirstMatchingFile(download({
+    original
+      .on("data", function (f) {
+        if (!/libffmpeg\.dylib$/.test(f.relative) || finished) {
+          return;
+        }
+
+        originalSize = f.stat && f.stat.size;
+
+        if (typeof original.destroy === "function") {
+          original.destroy();
+        }
+
+        var modified = download({
           version: "35.0.0",
           platform: "darwin",
           token: process.env["GITHUB_TOKEN"],
           ffmpegChromium: true,
-      }), function (f) {
-        return /libffmpeg\.dylib$/.test(f.relative);
-      }, function (err, modifiedFile) {
-        if (err) {
-          return cb(err);
-        }
+        });
 
-        assert(originalFile);
-        assert(modifiedFile);
-        assert(
-          originalFile.contents.length !== modifiedFile.contents.length
-        );
-        cb();
+        modified
+          .on("data", function (f) {
+            if (!/libffmpeg\.dylib$/.test(f.relative) || finished) {
+              return;
+            }
+
+            if (typeof modified.destroy === "function") {
+              modified.destroy();
+            }
+
+            try {
+              assert(originalSize);
+              assert(f.stat && f.stat.size);
+              assert.notEqual(originalSize, f.stat.size);
+            } catch (err) {
+              return done(err);
+            }
+
+            done();
+          })
+          .on("error", done)
+          .on("end", function () {
+            if (!finished) {
+              done(new Error("Modified ffmpeg file not found"));
+            }
+          });
+      })
+      .on("error", done)
+      .on("end", function () {
+        if (!finished && !originalSize) {
+          done(new Error("Original ffmpeg file not found"));
+        }
       });
-    });
   });
 
   it("should error properly", function (cb) {
