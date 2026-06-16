@@ -139,6 +139,7 @@ describe("download", function () {
 
   it("should replace ffmpeg", function (cb) {
     var finished = false;
+    var ffmpegPathPattern = /libffmpeg\.dylib$/;
 
     function done(err) {
       if (finished) {
@@ -158,7 +159,7 @@ describe("download", function () {
 
     original
       .on("data", function (f) {
-        if (!/libffmpeg\.dylib$/.test(f.relative) || finished) {
+        if (!ffmpegPathPattern.test(f.relative) || finished) {
           return;
         }
 
@@ -177,7 +178,7 @@ describe("download", function () {
 
         modified
           .on("data", function (f) {
-            if (!/libffmpeg\.dylib$/.test(f.relative) || finished) {
+            if (!ffmpegPathPattern.test(f.relative) || finished) {
               return;
             }
 
@@ -204,7 +205,7 @@ describe("download", function () {
       })
       .on("error", done)
       .on("end", function () {
-        if (!finished && !originalSize) {
+        if (!finished && originalSize == null) {
           done(new Error("Original ffmpeg file not found"));
         }
       });
