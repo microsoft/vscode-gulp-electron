@@ -1,9 +1,10 @@
 var assert = require("assert");
 var path = require("path");
-var filter = require("gulp-filter");
-var buffer = require("gulp-buffer");
-var es = require("event-stream");
 var download = require("../src/download");
+
+function isBlockedByDnsProxy(err) {
+  return Boolean(err && /Blocked by DNS monitoring proxy/.test(err.message));
+}
 
 describe("download", function () {
   this.timeout(1000 * 60 * 5);
@@ -55,6 +56,7 @@ describe("download", function () {
   });
 
   it("should download from a custom repo", function (cb) {
+    var that = this;
     var didSeeInfoPList = false;
 
     download({
@@ -71,7 +73,13 @@ describe("download", function () {
           didSeeInfoPList = true;
         }
       })
-      .on("error", cb)
+      .on("error", function (err) {
+        if (isBlockedByDnsProxy(err)) {
+          return that.skip();
+        }
+
+        cb(err);
+      })
       .on("end", function () {
         assert(didSeeInfoPList);
         cb();
@@ -130,44 +138,76 @@ describe("download", function () {
   });
 
   it("should replace ffmpeg", function (cb) {
-    var ffmpegSeen = false;
+    var finished = false;
+    var ffmpegPathPattern = /libffmpeg\.dylib$/;
 
-    var originalFile = null;
+    function done(err) {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+      cb(err);
+    }
+
+    var originalSize;
     var original = download({
       version: "35.0.0",
       platform: "darwin",
       token: process.env["GITHUB_TOKEN"],
-    })
-      .pipe(filter("**/libffmpeg.dylib"))
-      .pipe(buffer())
-      .pipe(
-        es.through(function (f) {
-          originalFile = f;
-        })
-      )
-      .on("end", function () {
-        var modifiedFile = null;
+    });
+
+    original
+      .on("data", function (f) {
+        if (!ffmpegPathPattern.test(f.relative) || finished) {
+          return;
+        }
+
+        originalSize = f.stat && f.stat.size;
+
+        if (typeof original.destroy === "function") {
+          original.destroy();
+        }
+
         var modified = download({
           version: "35.0.0",
           platform: "darwin",
           token: process.env["GITHUB_TOKEN"],
           ffmpegChromium: true,
-        })
-          .pipe(filter("**/libffmpeg.dylib"))
-          .pipe(buffer())
-          .pipe(
-            es.through(function (f) {
-              modifiedFile = f;
-            })
-          )
+        });
+
+        modified
+          .on("data", function (f) {
+            if (!ffmpegPathPattern.test(f.relative) || finished) {
+              return;
+            }
+
+            if (typeof modified.destroy === "function") {
+              modified.destroy();
+            }
+
+            try {
+              assert(originalSize);
+              assert(f.stat && f.stat.size);
+              assert.notEqual(originalSize, f.stat.size);
+            } catch (err) {
+              return done(err);
+            }
+
+            done();
+          })
+          .on("error", done)
           .on("end", function () {
-            assert(originalFile);
-            assert(modifiedFile);
-            assert(
-              originalFile.contents.length !== modifiedFile.contents.length
-            );
-            cb();
+            if (!finished) {
+              done(new Error("Modified ffmpeg file not found"));
+            }
           });
+      })
+      .on("error", done)
+      .on("end", function () {
+        if (!finished && originalSize == null) {
+          done(new Error("Original ffmpeg file not found"));
+        }
       });
   });
 
