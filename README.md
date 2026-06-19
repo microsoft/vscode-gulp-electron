@@ -93,6 +93,33 @@ The following options are **optional**:
 
 - `arch` - the processor architecture (`ia32`, `x64`)
 
+- `repo` - override where Electron assets are fetched from. Either:
+  - a `"owner/repo"` string, to resolve the release asset URL from a custom GitHub repository, or
+  - an async **asset resolver** function that supplies the asset bytes directly, without GitHub, a token or a mirror URL. This is useful in CI when prebuilt Electron archives have been pre-downloaded from an internal artifacts feed:
+
+    ```typescript
+    interface ElectronAsset {
+      url: string; // the full remote URL @electron/get would otherwise fetch
+      fileName: string; // e.g. electron-v42.2.0-linux-x64.zip, SHASUMS256.txt
+    }
+
+    type ElectronAssetResolver = (asset: ElectronAsset) => Promise<Response>;
+    ```
+
+    The resolver is invoked for every artifact, including `SHASUMS256.txt`, so checksum validation runs normally. `Response` is the global Web `Response`.
+
+    ```javascript
+    electron.dest("electron-build", {
+      version: "42.2.0",
+      platform: "linux",
+      arch: "x64",
+      repo: async ({ url, fileName }) => {
+        const bytes = await readFromInternalFeed(fileName);
+        return new Response(bytes);
+      },
+    });
+    ```
+
 - **Windows**
 
   - `winIcon` - path to an `.ico` file
