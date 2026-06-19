@@ -1,6 +1,9 @@
 "use strict";
 
 var path = require("path");
+const fs = require("fs");
+const { pipeline } = require("node:stream/promises");
+const { Readable } = require("node:stream");
 const { downloadArtifact } = require("@electron/get");
 const ProgressBar = require("progress");
 var rename = require("gulp-rename");
@@ -10,6 +13,40 @@ var filter = require("gulp-filter");
 const { Octokit } = require("@octokit/rest");
 const got = require("got").default;
 const sumchecker = require('sumchecker');
+
+class ResponseDownloader {
+  constructor(resolve) {
+    this.resolve = resolve;
+  }
+
+  async download(url, targetFilePath, _options) {
+    const response = await this.resolve({
+      url,
+      fileName: path.basename(new URL(url).pathname),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Electron asset resolver returned ${response.status} ${response.statusText} for ${url}`
+      );
+    }
+
+    await fs.promises.mkdir(path.dirname(targetFilePath), { recursive: true });
+
+    if (!response.body) {
+      await fs.promises.writeFile(
+        targetFilePath,
+        Buffer.from(await response.arrayBuffer())
+      );
+      return;
+    }
+
+    await pipeline(
+      Readable.fromWeb(response.body),
+      fs.createWriteStream(targetFilePath)
+    );
+  }
+}
 
 const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   "ETIMEDOUT",
@@ -173,7 +210,12 @@ async function download(opts) {
     }
   );
 
-  if (opts.repo) {
+  if (typeof opts.repo === "function") {
+    downloadOpts = {
+      ...downloadOpts,
+      downloader: new ResponseDownloader(opts.repo),
+    };
+  } else if (opts.repo) {
     const url = await withRetry("resolve release asset URL", () =>
       getDownloadUrl(opts.repo, opts.tag, downloadOpts)
     );
