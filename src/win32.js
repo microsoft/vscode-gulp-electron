@@ -206,6 +206,10 @@ function removeSignature(f, cb, dependencies) {
 }
 
 function removeSignatures() {
+  if (process.platform !== "win32") {
+    return es.through();
+  }
+
   return es.map(removeSignature);
 }
 
