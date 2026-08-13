@@ -8,6 +8,9 @@ var temp = require("temp").track();
 var rcedit = require("rcedit");
 var semver = require("semver");
 var { spawnSync } = require("child_process");
+var { pipeline } = require("stream");
+
+var cachedSignToolPath;
 
 function getOriginalAppName(opts) {
   return semver.gte(opts.version, "0.24.0") ? "electron" : "atom";
@@ -18,9 +21,13 @@ function getOriginalAppFullName(opts) {
 }
 
 function getSignTool() {
-  let windowsSDKDir= "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\";
+  if (cachedSignToolPath) {
+    return cachedSignToolPath;
+  }
+
+  let windowsSDKDir = "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\";
   if (!fs.existsSync(windowsSDKDir)) {
-    throw `There is no Windows 10 SDK installed at ${windowsSDKDir}.`;
+    throw new Error(`There is no Windows 10 SDK installed at ${windowsSDKDir}.`);
   }
 
   let findSignTool = (start) => {
@@ -41,13 +48,23 @@ function getSignTool() {
   let latestWindowsSDKSignTools = signToolPaths.filter(x => x.startsWith(`${windowsSDKDir}${latestWindowsSDKVersion}`));
   let x64SignTool = latestWindowsSDKSignTools.find(x => x.includes("x64"));
   if (x64SignTool) {
-    return x64SignTool;
+    cachedSignToolPath = x64SignTool;
+    return cachedSignToolPath;
   }
   let x86SignTool = latestWindowsSDKSignTools.find(x => x.includes("x86"));
   if (x86SignTool) {
-    return x86SignTool;
+    cachedSignToolPath = x86SignTool;
+    return cachedSignToolPath;
   }
-  throw `No supported version for signtool installed in ${windowsSDKDir}${latestWindowsSdkVersion}`;
+  throw new Error(`No supported version for signtool installed in ${windowsSDKDir}${latestWindowsSDKVersion}`);
+}
+
+function writeContentsToFile(f, targetPath, cb) {
+  if (Buffer.isBuffer(f.contents)) {
+    return fs.writeFile(targetPath, f.contents, cb);
+  }
+
+  pipeline(f.contents, fs.createWriteStream(targetPath), cb);
 }
 
 exports.getAppPath = function (opts) {
@@ -62,15 +79,10 @@ exports.getAppPath = function (opts) {
 
 function applyRcedit(f, patch, cb) {
   var tempPath = temp.path();
-  var ostream = fs.createWriteStream(tempPath);
 
-  f.contents.pipe(ostream);
-  ostream.on("close", function () {
-    // Remove codesignature before editing exe file
-    const signToolPath = getSignTool();
-    const {error} = spawnSync(signToolPath, ["remove", "/s", tempPath]);
-    if (error) {
-      return cb(error);
+  writeContentsToFile(f, tempPath, function (err) {
+    if (err) {
+      return cb(err);
     }
 
     rcedit(tempPath, patch).then(() => {
@@ -96,6 +108,112 @@ function applyRcedit(f, patch, cb) {
     });
   });
 }
+
+function removeSignature(f, cb, dependencies) {
+  if (!/\.(?:dll|exe)$/i.test(f.relative)) {
+    return cb(null, f);
+  }
+
+  dependencies = dependencies || { getSignTool, spawnSync };
+  var tempPath = temp.path({ suffix: path.extname(f.relative) });
+
+  writeContentsToFile(f, tempPath, function (err) {
+    if (err) {
+      return cb(err);
+    }
+
+    let signToolPath;
+    try {
+      signToolPath = dependencies.getSignTool();
+    } catch (err) {
+      return fs.unlink(tempPath, function () {
+        cb(err);
+      });
+    }
+
+    const verification = dependencies.spawnSync(
+      signToolPath,
+      ["verify", "/pa", "/all", "/v", tempPath],
+      { encoding: "utf8" }
+    );
+    if (verification.error) {
+      return fs.unlink(tempPath, function () {
+        cb(verification.error);
+      });
+    }
+    const verificationOutput = [verification.stdout, verification.stderr]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    const hasSignature = verification.status === 0 || /Signature Index:\s*\d+/i.test(verificationOutput);
+    if (!hasSignature) {
+      if (/no signature found/i.test(verificationOutput)) {
+        return fs.readFile(tempPath, function (err, data) {
+          if (err) {
+            return cb(err);
+          }
+
+          f.contents = data;
+          fs.unlink(tempPath, function (err) {
+            cb(err || null, f);
+          });
+        });
+      }
+
+      const err = new Error(
+        `Failed to inspect code signature for ${f.relative}${verificationOutput ? `: ${verificationOutput}` : ""}`
+      );
+      return fs.unlink(tempPath, function () {
+        cb(err);
+      });
+    }
+
+    const result = dependencies.spawnSync(signToolPath, ["remove", "/s", tempPath], {
+      encoding: "utf8",
+    });
+    if (result.error) {
+      return fs.unlink(tempPath, function () {
+        cb(result.error);
+      });
+    }
+    const output = (result.stderr || result.stdout || "").trim();
+    const hasNoSignature = /no signatures? found/i.test(output);
+    if (result.status !== 0 && !hasNoSignature) {
+      const err = new Error(
+        `Failed to remove code signature from ${f.relative}${output ? `: ${output}` : ""}`
+      );
+      return fs.unlink(tempPath, function () {
+        cb(err);
+      });
+    }
+
+    fs.readFile(tempPath, function (err, data) {
+      if (err) {
+        return cb(err);
+      }
+
+      f.contents = data;
+
+      fs.unlink(tempPath, function (err) {
+        if (err) {
+          return cb(err);
+        }
+
+        cb(null, f);
+      });
+    });
+  });
+}
+
+function removeSignatures() {
+  if (process.platform !== "win32") {
+    return es.through();
+  }
+
+  return es.map(removeSignature);
+}
+
+exports._removeSignature = removeSignature;
 
 function patchExecutable(opts) {
   return es.map(function (f, cb) {
@@ -228,6 +346,7 @@ exports.patch = function (opts) {
 
   var src = pass
     .pipe(opts.keepDefaultApp ? es.through() : removeDefaultApp())
+    .pipe(removeSignatures())
     .pipe(patchExecutable(opts))
     .pipe(renameApp(opts))
     .pipe(opts.createVersionedResources ? moveFilesExceptExecutable(opts) : es.through());

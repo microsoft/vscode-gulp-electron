@@ -29,14 +29,20 @@ extends:
           - script: npm ci
         testPlatforms:
           - name: Linux
-            nodeVersions: [22.x, 24.x]
+            nodeVersions: [24.x]
           - name: MacOS
-            nodeVersions: [22.x, 24.x]
+            nodeVersions: [24.x]
           - name: Windows
-            nodeVersions: [22.x, 24.x]
+            nodeVersions: [24.x]
         testSteps:
           - script: npm ci
+          - task: AzureKeyVault@2
+            displayName: "Azure Key Vault: Get Secrets"
+            inputs:
+              azureSubscription: vscode-oss-build-secrets
+              KeyVaultName: vscode-oss-build-secrets
+              SecretsFilter: github-token-code-oss
           - script: npm test
             env:
-              GITHUB_TOKEN: "$(github-token)"
+              GITHUB_TOKEN: "$(github-token-code-oss)"
         publishPackage: ${{ parameters.publishPackage }}
