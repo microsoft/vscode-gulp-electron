@@ -148,7 +148,9 @@ async function getDownloadUrl(
   });
 
   const { url, headers } = requestOptions;
-  headers.authorization = `token ${token}`;
+  if (token) {
+    headers.authorization = `token ${token}`;
+  }
 
   const response = await withRetry("HEAD release asset", () =>
     got(url, {
