@@ -42,7 +42,7 @@ to pipe the built app to disk, those will be missing. `symdest` will make
 sure symlinks are taken into account.
 
 Finally, you can always pipe it to a **zip archive** for easy distribution.
-[@vscode/gulp-vinyl-zip](https://github.com/microsoft/vscode-gulp-vinyl-zip) is recommended:
+[@vscode/gulp-vinyl-zip](https://github.com/microsoft/gulp-vinyl-zip) is recommended:
 
 ```javascript
 var gulp = require("gulp");
